@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GridOpsAgent 知识库管理</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1f3c 0%, #2d3561 100%);
+            color: #e0e6ed;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(100,150,255,0.15);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-icon {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+        }
+        .header-badge {
+            background: rgba(79,172,254,0.2); color: #4facfe;
+            padding: 4px 12px; border-radius: 12px; font-size: 12px;
+        }
+        .nav-links {
+            display: flex; gap: 8px; margin-left: 32px;
+        }
+        .nav-link {
+            color: #8892b0; text-decoration: none;
+            padding: 6px 16px; border-radius: 8px; font-size: 13px;
+            transition: all 0.25s ease;
+            border: 1px solid transparent;
+        }
+        .nav-link:hover { color: #4facfe; background: rgba(79,172,254,0.08); }
+        .nav-link.active {
+            color: #4facfe; background: rgba(79,172,254,0.15);
+            border-color: rgba(79,172,254,0.3);
+        }
+        .container {
+            flex: 1; max-width: 1400px; width: 100%; margin: 0 auto;
+            padding: 24px; display: flex; flex-direction: column; gap: 24px;
+        }
+        .top-row {
+            display: flex; gap: 24px;
+        }
+        .card {
+            background: rgba(30,40,70,0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid rgba(100,150,255,0.1);
+            padding: 20px;
+        }
+        .card-title {
+            font-size: 14px; font-weight: 600; color: #4facfe;
+            margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+        }
+        .upload-card { flex: 0 0 380px; }
+        .list-card { flex: 1; min-width: 0; }
+        .search-card { width: 100%; }
+        .form-group { margin-bottom: 12px; }
+        .form-label {
+            display: block; font-size: 12px; color: #8892b0;
+            margin-bottom: 4px;
+        }
+        .form-input {
+            width: 100%; background: rgba(20,28,52,0.8);
+            border: 1px solid rgba(100,150,255,0.15);
+            border-radius: 8px; padding: 8px 12px;
+            color: #e0e6ed; font-size: 13px; outline: none;
+            transition: border-color 0.3s ease;
+        }
+        .form-input:focus { border-color: #4facfe; }
+        .form-select {
+            width: 100%; background: rgba(20,28,52,0.8);
+            border: 1px solid rgba(100,150,255,0.15);
+            border-radius: 8px; padding: 8px 12px;
+            color: #e0e6ed; font-size: 13px; outline: none;
+        }
+        .file-input-wrapper {
+            position: relative;
+            border: 2px dashed rgba(100,150,255,0.2);
+            border-radius: 10px; padding: 24px;
+            text-align: center; cursor: pointer;
+            transition: all 0.3s ease;
+            background: rgba(20,28,52,0.5);
+        }
+        .file-input-wrapper:hover {
+            border-color: #4facfe;
+            background: rgba(79,172,254,0.05);
+        }
+        .file-input-wrapper.drag-over {
+            border-color: #4facfe;
+            background: rgba(79,172,254,0.1);
+        }
+        .file-input-wrapper input[type="file"] {
+            position: absolute; inset: 0; opacity: 0; cursor: pointer;
+        }
+        .file-input-icon { font-size: 28px; margin-bottom: 8px; }
+        .file-input-text { font-size: 13px; color: #8892b0; }
+        .file-input-hint { font-size: 11px; color: #5a6580; margin-top: 4px; }
+        .file-selected {
+            margin-top: 8px; font-size: 12px; color: #4facfe;
+            display: flex; align-items: center; gap: 6px;
+        }
+        button {
+            cursor: pointer; border: none; outline: none;
+            font-family: inherit; font-size: 13px;
+            padding: 8px 16px; border-radius: 8px;
+            font-weight: 500; transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+        .upload-btn {
+            width: 100%;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: #fff; padding: 10px; font-size: 14px; font-weight: 600;
+            margin-top: 8px;
+        }
+        .upload-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(79,172,254,0.4);
+        }
+        .upload-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .upload-result {
+            margin-top: 12px; padding: 10px;
+            border-radius: 8px; font-size: 12px;
+            display: none;
+        }
+        .upload-result.success {
+            display: block;
+            background: rgba(0,214,143,0.1);
+            border: 1px solid rgba(0,214,143,0.3);
+            color: #00d68f;
+        }
+        .upload-result.error {
+            display: block;
+            background: rgba(255,71,87,0.1);
+            border: 1px solid rgba(255,71,87,0.3);
+            color: #ff4757;
+        }
+        .filter-row {
+            display: flex; gap: 8px; align-items: center;
+            margin-bottom: 12px;
+        }
+        .filter-row .form-select {
+            width: auto; min-width: 140px;
+        }
+        .refresh-btn {
+            background: rgba(79,172,254,0.15); color: #4facfe;
+            padding: 6px 12px; font-size: 12px;
+        }
+        .refresh-btn:hover { background: rgba(79,172,254,0.25); }
+        .doc-table {
+            width: 100%; border-collapse: collapse; font-size: 12px;
+        }
+        .doc-table th {
+            text-align: left; padding: 10px 8px;
+            color: #8892b0; font-weight: 500;
+            border-bottom: 1px solid rgba(100,150,255,0.1);
+            white-space: nowrap;
+        }
+        .doc-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(100,150,255,0.05);
+            vertical-align: middle;
+        }
+        .doc-table tr:hover td {
+            background: rgba(79,172,254,0.03);
+        }
+        .doc-name {
+            max-width: 200px; overflow: hidden;
+            text-overflow: ellipsis; white-space: nowrap;
+            color: #e0e6ed; font-weight: 500;
+        }
+        .status-badge {
+            display: inline-block; padding: 2px 8px;
+            border-radius: 10px; font-size: 11px; font-weight: 500;
+        }
+        .status-uploaded { background: rgba(136,146,176,0.2); color: #8892b0; }
+        .status-parsing, .status-cleaning, .status-chunking, .status-indexing {
+            background: rgba(79,172,254,0.15); color: #4facfe;
+            animation: pulse 2s infinite;
+        }
+        .status-completed { background: rgba(0,214,143,0.15); color: #00d68f; }
+        .status-failed { background: rgba(255,71,87,0.15); color: #ff4757; }
+        .status-chunked { background: rgba(79,172,254,0.1); color: #6ba3ff; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        .action-btns { display: flex; gap: 4px; flex-wrap: nowrap; }
+        .action-btn {
+            padding: 4px 8px; border-radius: 6px; font-size: 11px;
+        }
+        .action-status { background: rgba(79,172,254,0.1); color: #4facfe; }
+        .action-status:hover { background: rgba(79,172,254,0.2); }
+        .action-delete { background: rgba(255,71,87,0.1); color: #ff4757; }
+        .action-delete:hover { background: rgba(255,71,87,0.2); }
+        .action-versions { background: rgba(136,146,176,0.1); color: #8892b0; }
+        .action-versions:hover { background: rgba(136,146,176,0.2); }
+        .action-rollback { background: rgba(255,165,2,0.1); color: #ffa502; }
+        .action-rollback:hover { background: rgba(255,165,2,0.2); }
+        .pagination {
+            display: flex; align-items: center; justify-content: center;
+            gap: 12px; margin-top: 12px; font-size: 12px; color: #8892b0;
+        }
+        .page-btn {
+            background: rgba(79,172,254,0.1); color: #4facfe;
+            padding: 4px 12px; border-radius: 6px; font-size: 12px;
+        }
+        .page-btn:hover { background: rgba(79,172,254,0.2); }
+        .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .empty-list {
+            text-align: center; padding: 40px; color: #5a6580;
+        }
+        .search-row {
+            display: flex; gap: 12px; align-items: flex-end;
+        }
+        .search-row .form-input { flex: 1; }
+        .search-row .form-input-small { width: 80px; flex: none; }
+        .search-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff; padding: 8px 20px;
+        }
+        .search-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+        }
+        .search-results { margin-top: 16px; }
+        .search-result-item {
+            background: rgba(20,28,52,0.6);
+            border: 1px solid rgba(100,150,255,0.08);
+            border-radius: 10px; padding: 12px 16px;
+            margin-bottom: 8px;
+        }
+        .search-result-header {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 6px;
+        }
+        .search-result-name { font-size: 13px; color: #4facfe; font-weight: 500; }
+        .search-result-score {
+            font-size: 12px; color: #00d68f;
+            background: rgba(0,214,143,0.1);
+            padding: 2px 8px; border-radius: 8px;
+        }
+        .search-result-content {
+            font-size: 12px; color: #8892b0; line-height: 1.6;
+            max-height: 80px; overflow: hidden;
+        }
+        .search-result-meta {
+            font-size: 11px; color: #5a6580; margin-top: 6px;
+        }
+        .modal-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.6); backdrop-filter: blur(4px);
+            z-index: 1000; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: rgba(30,40,70,0.95);
+            border: 1px solid rgba(100,150,255,0.2);
+            border-radius: 16px; padding: 24px;
+            max-width: 600px; width: 90%; max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-title {
+            font-size: 16px; font-weight: 600; color: #4facfe;
+            margin-bottom: 16px; display: flex;
+            align-items: center; justify-content: space-between;
+        }
+        .modal-close {
+            background: none; color: #8892b0; font-size: 20px;
+            padding: 4px 8px;
+        }
+        .modal-close:hover { color: #ff4757; }
+        .version-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; border-radius: 8px;
+            background: rgba(20,28,52,0.5);
+            margin-bottom: 6px; font-size: 12px;
+        }
+        .version-active { border-left: 3px solid #00d68f; }
+        .version-inactive { border-left: 3px solid #5a6580; opacity: 0.7; }
+        .status-detail {
+            margin-top: 12px; padding: 12px;
+            background: rgba(20,28,52,0.5);
+            border-radius: 10px; font-size: 12px;
+        }
+        .status-detail-row {
+            display: flex; justify-content: space-between;
+            padding: 4px 0; color: #8892b0;
+        }
+        .status-detail-row span:last-child { color: #e0e6ed; }
+        @media (max-width: 900px) {
+            .top-row { flex-direction: column; }
+            .upload-card { flex: auto; }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1><span class="header-icon">⚡</span>GridOpsAgent <span class="header-badge">Multi-Agent v2.0</span></h1>
+    <nav class="nav-links">
+        <a href="/" class="nav-link">智能对话</a>
+        <a href="/admin.html" class="nav-link active">知识库管理</a>
+    </nav>
+</div>
+
+<div class="container">
+    <div class="top-row">
+        <div class="card upload-card">
+            <div class="card-title">📤 文档上传</div>
+
+            <div class="form-group">
+                <div class="file-input-wrapper" id="dropZone">
+                    <input type="file" id="fileInput" accept=".txt,.md,.pdf,.docx,.xlsx,.html,.htm">
+                    <div class="file-input-icon">📁</div>
+                    <div class="file-input-text">点击或拖拽文件到此处</div>
+                    <div class="file-input-hint">支持 txt / md / pdf / docx / xlsx / html</div>
+                </div>
+                <div class="file-selected" id="fileSelected" style="display:none">
+                    📎 <span id="fileName"></span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">文档类型</label>
+                <select id="docType" class="form-select">
+                    <option value="">未分类</option>
+                    <option value="电力安规">电力安规</option>
+                    <option value="设备手册">设备手册</option>
+                    <option value="巡检标准">巡检标准</option>
+                    <option value="故障处理规程">故障处理规程</option>
+                    <option value="历史故障案例">历史故障案例</option>
+                    <option value="专家经验文档">专家经验文档</option>
+                    <option value="厂家说明书">厂家说明书</option>
+                    <option value="标准作业指导书">标准作业指导书</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">来源</label>
+                <input type="text" id="docSource" class="form-input" placeholder="如：国网标准、设备厂家">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">描述</label>
+                <input type="text" id="docDesc" class="form-input" placeholder="文档简要描述">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">标签</label>
+                <input type="text" id="docTags" class="form-input" placeholder="逗号分隔，如：变压器,安规,运维">
+            </div>
+
+            <button class="upload-btn" id="uploadBtn" onclick="uploadDocument()">上传文档</button>
+
+            <div class="upload-result" id="uploadResult"></div>
+        </div>
+
+        <div class="card list-card">
+            <div class="card-title">📋 文档列表</div>
+
+            <div class="filter-row">
+                <select id="filterDocType" class="form-select" onchange="loadDocuments(1)">
+                    <option value="">全部类型</option>
+                    <option value="电力安规">电力安规</option>
+                    <option value="设备手册">设备手册</option>
+                    <option value="巡检标准">巡检标准</option>
+                    <option value="故障处理规程">故障处理规程</option>
+                    <option value="历史故障案例">历史故障案例</option>
+                    <option value="专家经验文档">专家经验文档</option>
+                    <option value="厂家说明书">厂家说明书</option>
+                    <option value="标准作业指导书">标准作业指导书</option>
+                    <option value="未分类">未分类</option>
+                </select>
+                <button class="refresh-btn" onclick="loadDocuments(currentPage)">🔄 刷新</button>
+                <span style="font-size:12px;color:#5a6580;margin-left:auto" id="autoRefreshHint"></span>
+            </div>
+
+            <div id="docListContainer">
+                <table class="doc-table">
+                    <thead>
+                        <tr>
+                            <th>文档名称</th>
+                            <th>类型</th>
+                            <th>格式</th>
+                            <th>状态</th>
+                            <th>分片</th>
+                            <th>向量</th>
+                            <th>版本</th>
+                            <th>上传时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="docTableBody">
+                    </tbody>
+                </table>
+                <div class="empty-list" id="emptyList">暂无文档，请上传知识库文档</div>
+            </div>
+
+            <div class="pagination" id="pagination" style="display:none">
+                <button class="page-btn" id="prevBtn" onclick="loadDocuments(currentPage-1)">上一页</button>
+                <span id="pageInfo"></span>
+                <button class="page-btn" id="nextBtn" onclick="loadDocuments(currentPage+1)">下一页</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="card search-card">
+        <div class="card-title">🔍 知识库搜索测试</div>
+        <div class="search-row">
+            <div class="form-group" style="flex:1;margin-bottom:0">
+                <input type="text" id="searchQuery" class="form-input" placeholder="输入搜索查询，如：变压器油温高处理规程">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+                <label class="form-label" style="margin-bottom:0">topK</label>
+                <input type="number" id="searchTopK" class="form-input form-input-small" value="5" min="1" max="20">
+            </div>
+            <button class="search-btn" onclick="searchTest()">搜索</button>
+        </div>
+        <div class="search-results" id="searchResults"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="versionModal">
+    <div class="modal">
+        <div class="modal-title">
+            <span>📑 文档版本</span>
+            <button class="modal-close" onclick="closeModal('versionModal')">&times;</button>
+        </div>
+        <div id="versionContent"></div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="statusModal">
+    <div class="modal">
+        <div class="modal-title">
+            <span>📊 处理状态</span>
+            <button class="modal-close" onclick="closeModal('statusModal')">&times;</button>
+        </div>
+        <div id="statusContent"></div>
+    </div>
+</div>
+
+<script>
+let currentPage = 1;
+const pageSize = 10;
+let autoRefreshTimer = null;
+
+document.getElementById('fileInput').addEventListener('change', function() {
+    const fileSelected = document.getElementById('fileSelected');
+    const fileNameSpan = document.getElementById('fileName');
+    if (this.files.length > 0) {
+        fileNameSpan.textContent = this.files[0].name + ' (' + formatSize(this.files[0].size) + ')';
+        fileSelected.style.display = 'flex';
+    } else {
+        fileSelected.style.display = 'none';
+    }
+});
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    this.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', function() {
+    this.classList.remove('drag-over');
+});
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    this.classList.remove('drag-over');
+    const fileInput = document.getElementById('fileInput');
+    fileInput.files = e.dataTransfer.files;
+    fileInput.dispatchEvent(new Event('change'));
+});
+
+document.getElementById('searchQuery').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') searchTest();
+});
+
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / 1048576).toFixed(1) + ' MB';
+}
+
+function formatTime(dt) {
+    if (!dt) return '-';
+    return dt.replace('T', ' ').substring(0, 19);
+}
+
+function getStatusClass(status) {
+    if (!status) return 'status-uploaded';
+    const s = status.toUpperCase();
+    if (s === 'COMPLETED') return 'status-completed';
+    if (s === 'FAILED') return 'status-failed';
+    if (['PARSING','CLEANING','CHUNKING','INDEXING','CHUNKED'].includes(s)) return 'status-' + s.toLowerCase();
+    return 'status-uploaded';
+}
+
+function isProcessing(status) {
+    if (!status) return false;
+    const s = status.toUpperCase();
+    return ['UPLOADED','PARSING','CLEANING','CHUNKING','INDEXING','CHUNKED','PENDING'].includes(s);
+}
+
+async function uploadDocument() {
+    const fileInput = document.getElementById('fileInput');
+    const file = fileInput.files[0];
+    if (!file) { alert('请选择文件'); return; }
+
+    const uploadBtn = document.getElementById('uploadBtn');
+    const resultDiv = document.getElementById('uploadResult');
+    uploadBtn.disabled = true;
+    uploadBtn.textContent = '上传中...';
+    resultDiv.className = 'upload-result';
+    resultDiv.style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('file', file);
+    const docType = document.getElementById('docType').value;
+    const docSource = document.getElementById('docSource').value;
+    const docDesc = document.getElementById('docDesc').value;
+    const docTags = document.getElementById('docTags').value;
+    if (docType) formData.append('documentType', docType);
+    if (docSource) formData.append('source', docSource);
+    if (docDesc) formData.append('description', docDesc);
+    if (docTags) formData.append('tags', docTags);
+
+    try {
+        const response = await fetch('/api/knowledge/documents/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+
+        if (data.error) {
+            resultDiv.className = 'upload-result error';
+            resultDiv.textContent = '❌ ' + data.error;
+        } else {
+            resultDiv.className = 'upload-result success';
+            resultDiv.innerHTML = '✅ 上传成功！文档ID: ' + data.documentId +
+                '<br>状态: ' + data.status + '，正在后台处理...';
+            fileInput.value = '';
+            document.getElementById('fileSelected').style.display = 'none';
+            document.getElementById('docSource').value = '';
+            document.getElementById('docDesc').value = '';
+            document.getElementById('docTags').value = '';
+            loadDocuments(1);
+        }
+    } catch (error) {
+        resultDiv.className = 'upload-result error';
+        resultDiv.textContent = '❌ 上传失败: ' + error.message;
+    } finally {
+        uploadBtn.disabled = false;
+        uploadBtn.textContent = '上传文档';
+    }
+}
+
+async function loadDocuments(page) {
+    currentPage = page || 1;
+    const docType = document.getElementById('filterDocType').value;
+    const tbody = document.getElementById('docTableBody');
+    const emptyList = document.getElementById('emptyList');
+
+    try {
+        const response = await fetch(
+            '/api/knowledge/documents?documentType=' + encodeURIComponent(docType) +
+            '&page=' + currentPage + '&size=' + pageSize
+        );
+        const data = await response.json();
+        const docs = data.documents || [];
+
+        tbody.innerHTML = '';
+
+        if (docs.length === 0) {
+            emptyList.style.display = 'block';
+            document.getElementById('pagination').style.display = 'none';
+        } else {
+            emptyList.style.display = 'none';
+
+            docs.forEach(function(doc) {
+                const tr = document.createElement('tr');
+                tr.innerHTML =
+                    '<td><span class="doc-name" title="' + escapeHtml(doc.documentName) + '">' +
+                        escapeHtml(doc.documentName) + '</span></td>' +
+                    '<td>' + escapeHtml(doc.documentType || '-') + '</td>' +
+                    '<td>' + escapeHtml(doc.fileType || '-') + '</td>' +
+                    '<td><span class="status-badge ' + getStatusClass(doc.status) + '">' +
+                        escapeHtml(doc.status) + '</span></td>' +
+                    '<td>' + (doc.chunkCount || 0) + '</td>' +
+                    '<td>' + (doc.embeddingCount || 0) + '</td>' +
+                    '<td>v' + (doc.version || 1) + '</td>' +
+                    '<td>' + formatTime(doc.createdAt) + '</td>' +
+                    '<td><div class="action-btns">' +
+                        '<button class="action-btn action-status" onclick="showStatus(\'' + doc.documentId + '\')">状态</button>' +
+                        '<button class="action-btn action-versions" onclick="showVersions(\'' + escapeHtml(doc.documentName) + '\')">版本</button>' +
+                        '<button class="action-btn action-rollback" onclick="rollbackDoc(\'' + doc.documentId + '\')">回滚</button>' +
+                        '<button class="action-btn action-delete" onclick="deleteDoc(\'' + doc.documentId + '\')">删除</button>' +
+                    '</div></td>';
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('pagination').style.display = 'flex';
+            document.getElementById('pageInfo').textContent = '第 ' + currentPage + ' 页';
+            document.getElementById('prevBtn').disabled = currentPage <= 1;
+            document.getElementById('nextBtn').disabled = docs.length < pageSize;
+        }
+
+        setupAutoRefresh(docs);
+
+    } catch (error) {
+        console.error('加载文档列表失败:', error);
+    }
+}
+
+function setupAutoRefresh(docs) {
+    if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer);
+        autoRefreshTimer = null;
+    }
+
+    const hint = document.getElementById('autoRefreshHint');
+    const hasProcessing = docs && docs.some(function(d) { return isProcessing(d.status); });
+
+    if (hasProcessing) {
+        hint.textContent = '⏳ 处理中，每5秒自动刷新';
+        autoRefreshTimer = setInterval(function() {
+            loadDocuments(currentPage);
+        }, 5000);
+    } else {
+        hint.textContent = '';
+    }
+}
+
+async function showStatus(documentId) {
+    try {
+        const response = await fetch('/api/knowledge/documents/' + documentId + '/status');
+        const data = await response.json();
+
+        const content = document.getElementById('statusContent');
+        content.innerHTML =
+            '<div class="status-detail">' +
+            '<div class="status-detail-row"><span>文档ID</span><span>' + escapeHtml(data.documentId) + '</span></div>' +
+            '<div class="status-detail-row"><span>文档名称</span><span>' + escapeHtml(data.documentName || '-') + '</span></div>' +
+            '<div class="status-detail-row"><span>文档状态</span><span>' + escapeHtml(data.status || '-') + '</span></div>' +
+            '<div class="status-detail-row"><span>分片数</span><span>' + (data.chunkCount || 0) + '</span></div>' +
+            '<div class="status-detail-row"><span>向量数</span><span>' + (data.embeddingCount || 0) + '</span></div>' +
+            (data.processStatus ? '<div class="status-detail-row"><span>处理状态</span><span>' + escapeHtml(data.processStatus) + '</span></div>' : '') +
+            (data.currentStep ? '<div class="status-detail-row"><span>当前步骤</span><span>' + escapeHtml(data.currentStep) + '</span></div>' : '') +
+            (data.errorMessage ? '<div class="status-detail-row"><span>错误信息</span><span style="color:#ff4757">' + escapeHtml(data.errorMessage) + '</span></div>' : '') +
+            '</div>';
+
+        openModal('statusModal');
+    } catch (error) {
+        alert('查询状态失败: ' + error.message);
+    }
+}
+
+async function showVersions(documentName) {
+    try {
+        const response = await fetch('/api/knowledge/documents/' + encodeURIComponent(documentName) + '/versions');
+        const data = await response.json();
+        const versions = data.versions || [];
+
+        const content = document.getElementById('versionContent');
+        if (versions.length === 0) {
+            content.innerHTML = '<div style="text-align:center;color:#5a6580;padding:20px">无版本记录</div>';
+        } else {
+            content.innerHTML = versions.map(function(v) {
+                const isActive = v.enabled === 1;
+                return '<div class="version-item ' + (isActive ? 'version-active' : 'version-inactive') + '">' +
+                    '<div>' +
+                    '<span style="color:#4facfe">v' + v.version + '</span> ' +
+                    '<span style="color:#e0e6ed">' + escapeHtml(v.documentName) + '</span> ' +
+                    '<span class="status-badge ' + getStatusClass(v.status) + '">' + escapeHtml(v.status) + '</span>' +
+                    (isActive ? ' <span style="color:#00d68f;font-size:11px">● 当前版本</span>' : '') +
+                    '</div>' +
+                    '<div style="display:flex;gap:4px">' +
+                    (!isActive ? '<button class="action-btn action-rollback" onclick="rollbackDoc(\'' + v.documentId + '\');closeModal(\'versionModal\')">回滚到此版本</button>' : '') +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+        }
+
+        openModal('versionModal');
+    } catch (error) {
+        alert('查询版本失败: ' + error.message);
+    }
+}
+
+async function deleteDoc(documentId) {
+    if (!confirm('确定要删除此文档吗？\n删除后将同时清理：向量库数据 + 分片数据 + 处理任务 + 磁盘文件')) return;
+
+    try {
+        const response = await fetch('/api/knowledge/documents/' + documentId, {
+            method: 'DELETE'
+        });
+        const data = await response.json();
+        if (data.error) {
+            alert('删除失败: ' + data.error);
+        } else {
+            loadDocuments(currentPage);
+        }
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
+async function rollbackDoc(documentId) {
+    if (!confirm('确定要回滚到此版本吗？其他版本将被禁用。')) return;
+
+    try {
+        const response = await fetch('/api/knowledge/documents/' + documentId + '/rollback', {
+            method: 'POST'
+        });
+        const data = await response.json();
+        if (data.error) {
+            alert('回滚失败: ' + data.error);
+        } else {
+            loadDocuments(currentPage);
+        }
+    } catch (error) {
+        alert('回滚失败: ' + error.message);
+    }
+}
+
+async function searchTest() {
+    const query = document.getElementById('searchQuery').value.trim();
+    if (!query) { alert('请输入搜索查询'); return; }
+
+    const topK = parseInt(document.getElementById('searchTopK').value) || 5;
+    const resultsDiv = document.getElementById('searchResults');
+    resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#5a6580">搜索中...</div>';
+
+    try {
+        const response = await fetch('/api/knowledge/search/test', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({query: query, topK: topK})
+        });
+        const data = await response.json();
+        const results = data.results || [];
+
+        if (results.length === 0) {
+            resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#5a6580">未找到相关结果</div>';
+        } else {
+            resultsDiv.innerHTML = results.map(function(r, i) {
+                const meta = r.metadata || {};
+                const score = r.score ? (typeof r.score === 'number' ? r.score.toFixed(4) : r.score) : '-';
+                const content = r.content ? (r.content.length > 200 ? r.content.substring(0, 200) + '...' : r.content) : '-';
+                return '<div class="search-result-item">' +
+                    '<div class="search-result-header">' +
+                    '<span class="search-result-name">' + (i + 1) + '. ' + escapeHtml(meta.documentName || meta._file_name || '未知文档') + '</span>' +
+                    '<span class="search-result-score">相似度: ' + score + '</span>' +
+                    '</div>' +
+                    '<div class="search-result-content">' + escapeHtml(content) + '</div>' +
+                    '<div class="search-result-meta">' +
+                    '文档ID: ' + escapeHtml(meta.documentId || '-') +
+                    ' | 章节: ' + escapeHtml(meta.chapter || '-') +
+                    ' | 分片: ' + (meta.chunkIndex != null ? meta.chunkIndex : '-') +
+                    '</div>' +
+                    '</div>';
+            }).join('');
+        }
+    } catch (error) {
+        resultsDiv.innerHTML = '<div style="text-align:center;padding:20px;color:#ff4757">搜索失败: ' + error.message + '</div>';
+    }
+}
+
+function openModal(id) {
+    document.getElementById(id).classList.add('active');
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+}
+
+document.querySelectorAll('.modal-overlay').forEach(function(overlay) {
+    overlay.addEventListener('click', function(e) {
+        if (e.target === this) this.classList.remove('active');
+    });
+});
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+loadDocuments(1);
+</script>
+</body>
+</html>

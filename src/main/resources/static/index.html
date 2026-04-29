@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GridOpsAgent 电力智能运维平台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1f3c 0%, #2d3561 100%);
+            color: #e0e6ed;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: rgba(255,255,255,0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(100,150,255,0.15);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        .header h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .header-icon {
+            width: 32px; height: 32px;
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+        }
+        .header-badge {
+            background: rgba(79,172,254,0.2); color: #4facfe;
+            padding: 4px 12px; border-radius: 12px; font-size: 12px;
+        }
+        .nav-links {
+            display: flex; gap: 8px; margin-left: 32px;
+        }
+        .nav-link {
+            color: #8892b0; text-decoration: none;
+            padding: 6px 16px; border-radius: 8px; font-size: 13px;
+            transition: all 0.25s ease;
+            border: 1px solid transparent;
+        }
+        .nav-link:hover { color: #4facfe; background: rgba(79,172,254,0.08); }
+        .nav-link.active {
+            color: #4facfe; background: rgba(79,172,254,0.15);
+            border-color: rgba(79,172,254,0.3);
+        }
+        .container {
+            flex: 1; display: flex; max-width: 1400px; width: 100%; margin: 0 auto;
+            padding: 24px; gap: 24px;
+        }
+        .chat-panel {
+            flex: 1; display: flex; flex-direction: column;
+            background: rgba(30,40,70,0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            border: 1px solid rgba(100,150,255,0.1);
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(100,150,255,0.1);
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .panel-title {
+            font-size: 14px; font-weight: 500; color: #8892b0;
+        }
+        .status-dot {
+            width: 8px; height: 8px; border-radius: 50%;
+            background: #00d68f; box-shadow: 0 0 8px rgba(0,214,143,0.5);
+        }
+        .messages-container {
+            flex: 1; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .message {
+            max-width: 85%;
+            padding: 12px 16px; border-radius: 12px;
+            line-height: 1.6; font-size: 14px;
+            white-space: pre-wrap; word-break: break-word;
+        }
+        .user-message {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            border-bottom-right-radius: 4px;
+        }
+        .ai-message {
+            align-self: flex-start;
+            background: rgba(45,55,95,0.9);
+            color: #c5d0e6;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(100,150,255,0.08);
+        }
+        .input-area {
+            padding: 16px 20px;
+            border-top: 1px solid rgba(100,150,255,0.1);
+            display: flex; gap: 12px;
+        }
+        .input-area textarea {
+            flex: 1;
+            background: rgba(20,28,52,0.8);
+            border: 1px solid rgba(100,150,255,0.15);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: #e0e6ed;
+            font-size: 14px;
+            resize: none;
+            outline: none;
+            transition: all 0.3s ease;
+            min-height: 48px;
+            max-height: 120px;
+        }
+        .input-area textarea:focus {
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79,172,254,0.1);
+        }
+        .btn-group {
+            display: flex; flex-direction: column; gap: 8px;
+        }
+        button {
+            cursor: pointer; border: none; outline: none;
+            font-family: inherit; font-size: 13px;
+            padding: 10px 18px; border-radius: 8px;
+            font-weight: 500; transition: all 0.25s ease;
+            white-space: nowrap;
+        }
+        .send-btn {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: #fff;
+            height: 44px;
+        }
+        .send-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(79,172,254,0.4);
+        }
+        .send-btn:disabled {
+            opacity: 0.5; cursor: not-allowed;
+        }
+        .clear-btn {
+            background: rgba(255,107,107,0.15); color: #ff6b6b;
+            padding: 8px 14px;
+        }
+        .clear-btn:hover { background: rgba(255,107,107,0.25); }
+        .diagnose-btn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: #fff;
+            height: 44px;
+        }
+        .diagnose-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(245,87,108,0.4);
+        }
+        .side-panel {
+            width: 380px;
+            display: flex; flex-direction: column; gap: 16px;
+        }
+        .info-card {
+            background: rgba(30,40,70,0.7);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(100,150,255,0.1);
+            padding: 16px;
+        }
+        .info-card-title {
+            font-size: 13px; font-weight: 600; color: #4facfe;
+            margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+        }
+        .alarm-form { display: flex; flex-direction: column; gap: 10px; }
+        .form-row { display: flex; gap: 8px; }
+        .form-input {
+            flex: 1; background: rgba(20,28,52,0.8);
+            border: 1px solid rgba(100,150,255,0.15);
+            border-radius: 8px; padding: 8px 12px;
+            color: #e0e6ed; font-size: 13px; outline: none;
+        }
+        .form-input:focus { border-color: #4facfe; }
+        .form-select {
+            flex: 1; background: rgba(20,28,52,0.8);
+            border: 1px solid rgba(100,150,255,0.15);
+            border-radius: 8px; padding: 8px 12px;
+            color: #e0e6ed; font-size: 13px; outline: none;
+        }
+        .submit-alarm-btn {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: #1a1f3c; font-weight: 600;
+            padding: 10px; margin-top: 4px;
+        }
+        .submit-alarm-btn:hover { transform: translateY(-1px); }
+        .quick-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+        .quick-action-btn {
+            background: rgba(79,172,254,0.1); color: #4facfe;
+            padding: 6px 12px; border-radius: 16px; font-size: 11px;
+            border: 1px solid rgba(79,172,254,0.2);
+        }
+        .quick-action-btn:hover { background: rgba(79,172,254,0.2); }
+        .typing-indicator {
+            display: flex; gap: 4px; padding: 8px 12px;
+        }
+        .typing-indicator span {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: #4facfe; animation: bounce 1.4s infinite both;
+        }
+        .typing-indicator span:nth-child(2) { animation-delay: 0.16s; }
+        .typing-indicator span:nth-child(3) { animation-delay: 0.32s; }
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+            40% { transform: scale(1); opacity: 1; }
+        }
+        .error-message {
+            background: rgba(255,71,87,0.15); color: #ff4757;
+            padding: 8px 12px; border-radius: 8px; font-size: 13px;
+            border-left: 3px solid #ff4757;
+        }
+        .empty-state {
+            text-align: center; padding: 60px 20px;
+            color: #5a6580;
+        }
+        .empty-state-icon {
+            font-size: 48px; margin-bottom: 16px; opacity: 0.5;
+        }
+        .empty-state p { font-size: 14px; }
+        @media (max-width: 900px) {
+            .container { flex-direction: column; }
+            .side-panel { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+<div class="header">
+    <h1><span class="header-icon">⚡</span>GridOpsAgent <span class="header-badge">Multi-Agent v2.0</span></h1>
+    <nav class="nav-links">
+        <a href="/" class="nav-link active">智能对话</a>
+        <a href="/admin.html" class="nav-link">知识库管理</a>
+    </nav>
+</div>
+
+<div class="container">
+    <div class="chat-panel">
+        <div class="panel-header">
+            <span class="panel-title">智能对话</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <div class="status-dot"></div>
+                <span style="font-size:12px;color:#8892b0;">在线</span>
+            </div>
+        </div>
+
+        <div id="messages" class="messages-container">
+            <div class="empty-state">
+                <div class="empty-state-icon">🔌</div>
+                <p>欢迎使用 GridOpsAgent 电力智能运维平台<br>支持安规问答、设备状态查询、告警诊断等场景</p>
+            </div>
+        </div>
+
+        <div class="input-area">
+            <textarea id="questionInput" placeholder="输入您的问题，如：1号主变油温异常帮我分析原因..." rows="1"></textarea>
+            <div class="btn-group">
+                <button id="sendBtn" class="send-btn" onclick="sendMessage()">发送</button>
+                <button id="diagnoseBtn" class="diagnose-btn" onclick="startDiagnosis()">告警诊断</button>
+                <button class="clear-btn" onclick="clearSession()">清空</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="side-panel">
+        <div class="info-card">
+            <div class="info-card-title">⚠️ 告警接入</div>
+            <div class="alarm-form">
+                <div class="form-row">
+                    <select id="alarmDeviceType" class="form-select">
+                        <option value="">设备类型</option>
+                        <option value="变压器">变压器</option>
+                        <option value="开关柜">开关柜</option>
+                        <option value="断路器">断路器</option>
+                    </select>
+                    <select id="alarmLevel" class="form-select">
+                        <option value="">告警等级</option>
+                        <option value="紧急">紧急</option>
+                        <option value="重要">重要</option>
+                        <option value="一般">一般</option>
+                    </select>
+                </div>
+                <input type="text" id="alarmDeviceId" class="form-input" placeholder="设备编号 (如 TR-110KV-001)">
+                <input type="text" id="alarmType" class="form-input" placeholder="告警类型 (如 油温异常)">
+                <input type="text" id="alarmValue" class="form-input" placeholder="当前值/阈值 (如 86℃/80℃)">
+                <textarea id="alarmDescription" class="form-input" placeholder="告警描述（可选）" rows="2"></textarea>
+                <button class="submit-alarm-btn" onclick="submitAlarm()">提交告警并诊断</button>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-card-title">💡 快捷提问</div>
+            <div class="quick-actions">
+                <button class="quick-action-btn" onclick="askQuick('进入高压室前需要注意什么？')">高压室安全</button>
+                <button class="quick-action-btn" onclick="askQuick('1号主变现在油温是多少？')">查油温</button>
+                <button class="quick-action-btn" onclick="askQuick('帮我分析TR-110KV-001的油温异常原因')">故障诊断</button>
+                <button class="quick-action-btn" onclick="askQuick('查一下最近一周的告警记录')">历史告警</button>
+                <button class="quick-action-btn" onclick="askQuick('倒闸操作的安全规程是什么？')">安规查询</button>
+                <button class="quick-action-btn" onclick="askQuick('TR-110KV-001的设备台账信息')">设备台账</button>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-card-title">📋 使用说明</div>
+            <div style="font-size:12px;color:#8892b0;line-height:1.8;">
+                • 支持多轮对话，可连续追问<br>
+                • 告警诊断会自动调用多个工具分析<br>
+                • 知识库检索基于电力规程文档<br>
+                • 高风险建议会标注人工确认
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let sessionId = generateSessionId();
+let isProcessing = false;
+
+function generateSessionId() {
+    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+function addMessage(content, isUser = false) {
+    const messagesContainer = document.getElementById('messages');
+    const emptyState = messagesContainer.querySelector('.empty-state');
+    if (emptyState) emptyState.remove();
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `message ${isUser ? 'user-message' : 'ai-message'}`;
+    messageDiv.textContent = content;
+    messagesContainer.appendChild(messageDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function addTypingIndicator() {
+    const messagesContainer = document.getElementById('messages');
+    const typingDiv = document.createElement('div');
+    typingDiv.id = 'typing';
+    typingDiv.className = 'message ai-message';
+    typingDiv.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+    messagesContainer.appendChild(typingDiv);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+}
+
+function removeTypingIndicator() {
+    const typing = document.getElementById('typing');
+    if (typing) typing.remove();
+}
+
+async function sendMessage() {
+    const input = document.getElementById('questionInput');
+    const question = input.value.trim();
+    if (!question || isProcessing) return;
+
+    isProcessing = true;
+    input.value = '';
+    updateButtonState(true);
+
+    addMessage(question, true);
+    addTypingIndicator();
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({sessionId, question})
+        });
+
+        removeTypingIndicator();
+        const data = await response.json();
+
+        if (data.error) {
+            addMessage(`错误：${data.error}`);
+        } else {
+            addMessage(data.answer);
+        }
+    } catch (error) {
+        removeTypingIndicator();
+        addMessage(`请求失败：${error.message}`);
+    } finally {
+        isProcessing = false;
+        updateButtonState(false);
+    }
+}
+
+function askQuick(question) {
+    document.getElementById('questionInput').value = question;
+    sendMessage();
+}
+
+async function submitAlarm() {
+    const deviceId = document.getElementById('alarmDeviceId').value.trim();
+    const alarmType = document.getElementById('alarmType').value.trim();
+    const deviceType = document.getElementById('alarmDeviceType').value;
+    const alarmLevel = document.getElementById('alarmLevel').value;
+    const alarmValue = document.getElementById('alarmValue').value.trim();
+    const description = document.getElementById('alarmDescription').value.trim();
+
+    if (!deviceId || !alarmType) {
+        alert('请填写设备编号和告警类型');
+        return;
+    }
+
+    const [currentValue, threshold] = alarmValue ? alarmValue.split('/') : ['', ''];
+
+    const alarmEvent = {
+        deviceId,
+        deviceName: deviceId,
+        deviceType: deviceType || '未知',
+        alarmType,
+        alarmLevel: alarmLevel || '一般',
+        currentValue: currentValue || '',
+        threshold: threshold || '',
+        station: 'XX变电站'
+    };
+
+    try {
+        const receiveResp = await fetch('/api/alarm/receive', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(alarmEvent)
+        });
+        const receiveData = await receiveResp.json();
+
+        addMessage(`[告警接入] ${alarmType} - ${deviceId}`, true);
+
+        startDiagnosisWithTask(receiveData.taskId, description || JSON.stringify(alarmEvent));
+    } catch (error) {
+        addMessage(`告警提交失败：${error.message}`);
+    }
+}
+
+async function startDiagnosisWithTask(taskId, description) {
+    if (isProcessing) return;
+    isProcessing = true;
+    updateButtonState(true);
+    addTypingIndicator();
+
+    try {
+        const response = fetch('/api/alarm/diagnose', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({taskId, alarmDescription: description})
+        });
+
+        const reader = (await response).body.getReader();
+        const decoder = new TextDecoder();
+        let fullText = '';
+
+        removeTypingIndicator();
+        const aiMsgDiv = document.createElement('div');
+        aiMsgDiv.className = 'message ai-message';
+        document.getElementById('messages').appendChild(aiMsgDiv);
+
+        while (true) {
+            const {done, value} = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n');
+            for (const line of lines) {
+                if (line.startsWith('data:')) {
+                    const data = line.substring(5).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.type === 'message') {
+                            fullText += parsed.content;
+                            aiMsgDiv.textContent = fullText;
+                            document.getElementById('messages').scrollTop =
+                                document.getElementById('messages').scrollHeight;
+                        }
+                    } catch(e) {}
+                }
+            }
+        }
+
+        if (!fullText) aiMsgDiv.textContent = '(无响应内容)';
+    } catch (error) {
+        removeTypingIndicator();
+        addMessage(`诊断请求失败：${error.message}`);
+    } finally {
+        isProcessing = false;
+        updateButtonState(false);
+    }
+}
+
+async function startDiagnosis() {
+    const input = document.getElementById('questionInput');
+    const desc = input.value.trim() || '请对当前告警进行诊断分析';
+
+    startDiagnosisWithTask(null, desc);
+    input.value = '';
+}
+
+function clearSession() {
+    sessionId = generateSessionId();
+    fetch('/api/chat/clear', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({sessionId})
+    }).then(() => {
+        document.getElementById('messages').innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">🔌</div>
+                <p>会话已清空<br>可以开始新的对话</p>
+            </div>`;
+    }).catch(err => console.error('清空会话失败:', err));
+}
+
+function updateButtonState(disabled) {
+    document.getElementById('sendBtn').disabled = disabled;
+    document.getElementById('diagnoseBtn').disabled = disabled;
+}
+
+document.getElementById('questionInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
+
+document.getElementById('questionInput').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+});
+</script>
+</body>
+</html>

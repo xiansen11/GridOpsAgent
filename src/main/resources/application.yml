@@ -1,0 +1,103 @@
+server:
+  port: 9900
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+file:
+  upload:
+    path: ./uploads
+    allowed-extensions: txt,md,pdf,docx,xlsx,html
+
+milvus:
+  enabled: true
+  host: localhost
+  port: 19530
+  username: ""
+  password: ""
+  database: default
+  timeout: 10000
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/power_aiops?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 30000
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      database: 0
+      timeout: 10000
+
+  sql:
+    init:
+      mode: never
+
+  ai:
+    dashscope:
+      api-key: ${DASHSCOPE_API_KEY:sk-293eb6171e734f9cbddae579de541a3a}
+      chat:
+        options:
+          timeout: 180000
+      retry:
+        max-attempts: 3
+        backoff:
+          initial-interval: 2000
+          multiplier: 2
+          max-interval: 10000
+
+    mcp:
+      client:
+        enabled: false
+        name: power-aiops-mcp-server
+        version: 1.0.0
+        request-timeout: 60s
+        type: ASYNC
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+dashscope:
+  api:
+    key: ${DASHSCOPE_API_KEY:sk-293eb6171e734f9cbddae579de541a3a}
+  embedding:
+    model: text-embedding-v4
+
+document:
+  chunk:
+    max-size: 800
+    overlap: 100
+
+rag:
+  top-k: 3
+  model: "qwen3-max"
+
+power:
+  mock-enabled: true
+  alarm:
+    levels: 紧急,重要,一般,提示
+  device-types: 变压器,开关柜,断路器,隔离开关,母线,电缆,互感器
+  document-types: 电力安规,设备手册,巡检标准,故障处理规程,历史故障案例,专家经验文档,厂家说明书,标准作业指导书
+
+powerops:
+  graph:
+    enabled: true
