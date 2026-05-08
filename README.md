@@ -1,6 +1,9 @@
 # GridOpsAgent — 电力智能运维 Multi-Agent 平台
 
 ---
+<img width="2262" height="1827" alt="image" src="https://github.com/user-attachments/assets/cf9929e0-97a2-4a65-998c-33b1377bb1f9" />
+
+
 
 ## 一、项目概述
 
