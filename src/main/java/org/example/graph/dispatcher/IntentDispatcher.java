@@ -7,14 +7,11 @@ public class IntentDispatcher implements EdgeAction {
 
     @Override
     public String apply(OverAllState state) {
-        String intent = state.value("intent").map(Object::toString).orElse("GENERAL_CHAT");
+        String intent = state.value("intent").map(Object::toString).orElse("CHAT");
 
         return switch (intent) {
-            case "SAFETY_QA" -> "knowledge_qa";
-            case "DEVICE_STATUS", "DEVICE_PROFILE" -> "device_query";
-            case "ALARM_QUERY" -> "alarm_analysis";
-            case "FAULT_DIAGNOSIS", "ALARM_DIAGNOSIS" -> "fault_diagnosis";
-            case "COMPLEX_TASK" -> "dynamic_plan";
+            case "KNOWLEDGE_QA" -> "knowledge_qa";
+            case "DIAGNOSIS" -> "diagnosis";
             default -> "chat";
         };
     }

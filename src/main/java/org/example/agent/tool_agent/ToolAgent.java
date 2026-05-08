@@ -1,4 +1,4 @@
-package org.example.agent.knowledge;
+package org.example.agent.tool_agent;
 
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
 import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public class KnowledgeAgent {
+public class ToolAgent {
 
     @Value("${spring.ai.dashscope.api-key}")
     private String dashScopeApiKey;
@@ -18,20 +18,24 @@ public class KnowledgeAgent {
     @Autowired
     private ToolCallbackProvider tools;
 
-    private static final String KNOWLEDGE_PROMPT = """
-            你是电力智能运维平台的知识库问答专家。你的职责是基于知识库检索结果，回答用户关于电力规程、设备手册、巡检标准等问题。
+    private static final String TOOL_PROMPT = """
+            你是电力智能运维平台的工具调用专家。你的职责是根据用户的问题，选择并调用合适的工具获取数据。
             
-            工作流程：
-            1. 使用 queryInternalDocs 工具检索知识库
-            2. 使用 searchSafetyRules 工具查询安规
-            3. 基于检索结果组织回答
-            4. 引用来源文档，确保可追溯
+            可用工具及使用场景：
+            - getDeviceStatus: 查询设备实时运行状态（油温、负荷率、冷却器状态等）
+            - getAlarmHistory: 查询历史告警记录
+            - getDeviceLogs: 查询设备运行日志
+            - getDefectTickets: 查询缺陷工单
+            - searchSafetyRules: 检索安规条款
+            - getDeviceProfile: 查询设备台账信息
+            - queryInternalDocs: 搜索知识库文档
+            - getCurrentDateTime: 获取当前时间
             
-            回答规则：
-            - 必须基于工具返回的检索结果回答，严禁编造
-            - 引用具体条款编号和来源
-            - 涉及安全操作时，必须提示遵守现场规程
-            - 如果检索结果不足，明确告知并建议咨询专业人员
+            规则：
+            - 根据问题自主选择需要调用的工具
+            - 可以连续调用多个工具获取完整信息
+            - 返回工具的原始数据，不做过度解读
+            - 严禁编造数据，只能返回工具调用的真实结果
             """;
 
     public ReactAgent create(DashScopeApi dashScopeApi) {
@@ -39,16 +43,16 @@ public class KnowledgeAgent {
                 .dashScopeApi(dashScopeApi)
                 .defaultOptions(DashScopeChatOptions.builder()
                         .withModel(DashScopeChatModel.DEFAULT_MODEL_NAME)
-                        .withTemperature(0.3)
+                        .withTemperature(0.1)
                         .withMaxToken(2000)
                         .withTopP(0.8)
                         .build())
                 .build();
 
         return ReactAgent.builder()
-                .name("knowledge_agent")
+                .name("tool_agent")
                 .model(chatModel)
-                .systemPrompt(KNOWLEDGE_PROMPT)
+                .systemPrompt(TOOL_PROMPT)
                 .tools(tools.getToolCallbacks())
                 .build();
     }

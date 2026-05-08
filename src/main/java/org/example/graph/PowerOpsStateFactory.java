@@ -15,6 +15,7 @@ public class PowerOpsStateFactory implements KeyStrategyFactory {
         Map<String, KeyStrategy> strategies = new HashMap<>();
         strategies.put("input", new ReplaceStrategy());
         strategies.put("cleaned_input", new ReplaceStrategy());
+        strategies.put("rewritten_query", new ReplaceStrategy());
         strategies.put("session_id", new ReplaceStrategy());
         strategies.put("task_id", new ReplaceStrategy());
         strategies.put("user_id", new ReplaceStrategy());
@@ -23,8 +24,6 @@ public class PowerOpsStateFactory implements KeyStrategyFactory {
         strategies.put("memory_context", new ReplaceStrategy());
         strategies.put("skill_context", new ReplaceStrategy());
         strategies.put("history", new ReplaceStrategy());
-        strategies.put("plan", new ReplaceStrategy());
-        strategies.put("current_step_index", new ReplaceStrategy());
         strategies.put("step_results", new AppendStrategy());
         strategies.put("execution_result", new ReplaceStrategy());
         strategies.put("next_action", new ReplaceStrategy());
@@ -33,6 +32,9 @@ public class PowerOpsStateFactory implements KeyStrategyFactory {
         strategies.put("entities", new ReplaceStrategy());
         strategies.put("evidence", new ReplaceStrategy());
         strategies.put("risk_level", new ReplaceStrategy());
+        strategies.put("tool_result", new ReplaceStrategy());
+        strategies.put("permission_granted", new ReplaceStrategy());
+        strategies.put("alarm_level", new ReplaceStrategy());
         return strategies;
     }
 }

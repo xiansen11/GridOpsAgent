@@ -1,11 +1,8 @@
 package org.example.graph.subgraph.diagnosis;
 
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatModel;
-import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
-import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import org.example.agent.diagnosis.DiagnosisAgent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

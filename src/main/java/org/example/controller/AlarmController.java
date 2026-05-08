@@ -3,10 +3,9 @@ package org.example.controller;
 import com.alibaba.cloud.ai.dashscope.api.DashScopeApi;
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.OverAllState;
-import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import org.example.entity.AlarmTask;
 import org.example.mapper.AlarmTaskMapper;
-import org.example.service.AiOpsService;
+import org.example.agent.diagnosis.DiagnosisAgent;
 import org.example.service.AgentOrchestrationService;
 import org.example.checkpoint.CheckpointService;
 import org.example.entity.CheckpointRecord;
@@ -31,7 +30,10 @@ public class AlarmController {
     private static final Logger logger = LoggerFactory.getLogger(AlarmController.class);
 
     @Autowired
-    private AiOpsService aiOpsService;
+    private DiagnosisAgent diagnosisAgent;
+
+    @Value("${spring.ai.dashscope.api-key}")
+    private String dashScopeApiKey;
 
     @Autowired
     private AgentOrchestrationService agentOrchestrationService;
@@ -179,7 +181,7 @@ public class AlarmController {
             initialState.put("input", diagnosisInput);
             initialState.put("session_id", "alarm-" + (taskId != null ? taskId : UUID.randomUUID().toString().substring(0, 8)));
             initialState.put("task_id", taskId != null ? taskId : "TASK-" + UUID.randomUUID().toString().substring(0, 8));
-            initialState.put("intent", "FAULT_DIAGNOSIS");
+            initialState.put("intent", "DIAGNOSIS");
 
             Optional<OverAllState> resultOpt = compiledGraph.invoke(initialState);
             String answer = resultOpt
@@ -195,9 +197,8 @@ public class AlarmController {
 
     private String invokeLegacyDiagnosis(String diagnosisInput) {
         try {
-            DashScopeApi dashScopeApi = aiOpsService.createDashScopeApi();
-            ReactAgent diagnosisAgent = aiOpsService.createAlarmDiagnosisAgent(dashScopeApi);
-            return diagnosisAgent.call(diagnosisInput).getText();
+            DashScopeApi dashScopeApi = DashScopeApi.builder().apiKey(dashScopeApiKey).build();
+            return diagnosisAgent.create(dashScopeApi).call(diagnosisInput).getText();
         } catch (Exception e) {
             logger.error("旧编排诊断执行失败", e);
             return "诊断执行失败: " + e.getMessage();

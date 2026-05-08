@@ -8,26 +8,26 @@ import org.springframework.ai.chat.client.ChatClient;
 
 import java.util.Map;
 
-public class DiagnosisReplannerNode implements NodeAction {
+public class ReplannerNode implements NodeAction {
 
-    private static final Logger logger = LoggerFactory.getLogger(DiagnosisReplannerNode.class);
-    private static final int MAX_LOOP = 2;
+    private static final Logger logger = LoggerFactory.getLogger(ReplannerNode.class);
+    private static final int MAX_LOOP = 3;
     private final ChatClient chatClient;
 
-    public DiagnosisReplannerNode(ChatClient chatClient) {
+    public ReplannerNode(ChatClient chatClient) {
         this.chatClient = chatClient;
     }
 
     @Override
     public Map<String, Object> apply(OverAllState state) throws Exception {
-        String diagnosis = state.value("execution_result").map(Object::toString).orElse("");
-        String evidence = state.value("evidence").map(v -> v.toString()).orElse("");
+        String executionResult = state.value("execution_result").map(Object::toString).orElse("");
+        String evidence = state.value("evidence").map(Object::toString).orElse("");
         int loopCount = state.value("loop_count").map(v -> Integer.parseInt(v.toString())).orElse(0);
 
-        logger.info("DiagnosisReplannerNode: 重规划决策, loopCount={}", loopCount);
+        logger.info("ReplannerNode: 统一重规划决策, loopCount={}", loopCount);
 
         if (loopCount >= MAX_LOOP) {
-            if (evidence.contains("分析失败") || evidence.length() < 50) {
+            if (evidence.contains("分析失败") || evidence.contains("失败") || evidence.length() < 50) {
                 logger.info("达到最大循环次数且证据仍不足，降级处理");
                 return Map.of("next_action", "FALLBACK");
             }
@@ -35,7 +35,7 @@ public class DiagnosisReplannerNode implements NodeAction {
             return Map.of("next_action", "CONTINUE");
         }
 
-        if (evidence.contains("分析失败") || evidence.length() < 50) {
+        if (evidence.contains("分析失败") || evidence.contains("失败") || evidence.length() < 50) {
             logger.info("证据不足，需要补充调查");
             return Map.of("next_action", "REPLAN", "loop_count", loopCount + 1);
         }

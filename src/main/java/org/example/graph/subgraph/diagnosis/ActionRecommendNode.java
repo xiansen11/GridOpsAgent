@@ -4,38 +4,39 @@ import com.alibaba.cloud.ai.graph.OverAllState;
 import com.alibaba.cloud.ai.graph.action.NodeAction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.client.ChatClient;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 public class ActionRecommendNode implements NodeAction {
 
     private static final Logger logger = LoggerFactory.getLogger(ActionRecommendNode.class);
-    private final ChatClient chatClient;
-
-    public ActionRecommendNode(ChatClient chatClient) {
-        this.chatClient = chatClient;
-    }
 
     @Override
     public Map<String, Object> apply(OverAllState state) throws Exception {
-        String diagnosis = state.value("execution_result").map(Object::toString).orElse("");
+        String executionResult = state.value("execution_result").map(Object::toString).orElse("");
         String riskLevel = state.value("risk_level").map(Object::toString).orElse("MEDIUM");
-        String input = state.value("cleaned_input").map(Object::toString).orElse("");
-        logger.info("ActionRecommendNode: 生成行动建议, riskLevel={}", riskLevel);
+        logger.info("ActionRecommendNode: 行动建议+结果汇总, riskLevel={}", riskLevel);
 
-        String prompt = String.format(
-                "你是电力运维专家。根据以下诊断结果，生成行动建议和安全提示。\n\n" +
-                "原始问题: %s\n\n诊断结果: %s\n\n风险等级: %s\n\n" +
-                "请给出：1.处理建议 2.安全注意事项 3.是否需要人工介入",
-                input, diagnosis, riskLevel);
+        StringBuilder result = new StringBuilder(executionResult);
 
-        String result = chatClient.prompt().user(prompt).call().content();
-
-        if ("CRITICAL".equals(riskLevel) || "HIGH".equals(riskLevel)) {
-            result += "\n\n⚠️ **高风险操作提醒**：本诊断建议涉及高风险操作，请务必由专业人员确认后再执行。";
+        Object stepResultsObj = state.value("step_results").orElse(null);
+        if (stepResultsObj instanceof List<?> stepResults && !stepResults.isEmpty()) {
+            result.append("\n\n--- 执行过程摘要 ---\n");
+            for (Object obj : stepResults) {
+                if (obj instanceof Map<?, ?> m) {
+                    result.append("步骤").append(m.get("step") != null ? m.get("step") : "?").append(" [")
+                            .append(m.get("action") != null ? m.get("action") : "?").append("]: ")
+                            .append(m.get("status") != null ? m.get("status") : "?").append("\n");
+                }
+            }
         }
 
-        return Map.of("final_response", result);
+        if ("CRITICAL".equals(riskLevel) || "HIGH".equals(riskLevel)) {
+            result.append("\n\n⚠️ **高风险操作提醒**：本诊断建议涉及高风险操作，请务必由专业人员确认后再执行。");
+        }
+
+        return Map.of("final_response", result.toString());
     }
 }

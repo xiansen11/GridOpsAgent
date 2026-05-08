@@ -6,16 +6,13 @@ import com.alibaba.cloud.ai.dashscope.chat.DashScopeChatOptions;
 import com.alibaba.cloud.ai.graph.agent.ReactAgent;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.example.agent.alarm.AlarmAgent;
+import org.example.agent.analysis.AnalysisAgent;
 import org.example.agent.diagnosis.DiagnosisAgent;
-import org.example.agent.knowledge.KnowledgeAgent;
-import org.example.agent.log.LogAnalysisAgent;
+import org.example.agent.risk.RiskReviewAgent;
 import org.example.agent.router.RouterAgent;
 import org.example.agent.skill.model.Skill;
 import org.example.agent.skill.service.SkillSelector;
-import org.example.agent.subagent.SubagentExecutor;
-import org.example.agent.subagent.SubagentTask;
-import org.example.agent.ticket.TicketAgent;
+import org.example.agent.tool_agent.ToolAgent;
 import org.example.checkpoint.CheckpointService;
 import org.example.hook.HookContext;
 import org.example.hook.HookEngine;
@@ -39,19 +36,16 @@ public class AgentOrchestrationService {
     private RouterAgent routerAgent;
 
     @Autowired
-    private KnowledgeAgent knowledgeAgent;
+    private ToolAgent toolAgent;
 
     @Autowired
-    private AlarmAgent alarmAgent;
-
-    @Autowired
-    private LogAnalysisAgent logAnalysisAgent;
-
-    @Autowired
-    private TicketAgent ticketAgent;
+    private AnalysisAgent analysisAgent;
 
     @Autowired
     private DiagnosisAgent diagnosisAgent;
+
+    @Autowired
+    private RiskReviewAgent riskReviewAgent;
 
     @Autowired
     private ToolCallbackProvider tools;
@@ -61,9 +55,6 @@ public class AgentOrchestrationService {
 
     @Autowired
     private SkillSelector skillSelector;
-
-    @Autowired
-    private SubagentExecutor subagentExecutor;
 
     @Autowired
     private CheckpointService checkpointService;
@@ -80,10 +71,10 @@ public class AgentOrchestrationService {
         try {
             String routeResult = routerAgent.route(question);
             JsonNode node = objectMapper.readTree(routeResult);
-            return node.has("intent") ? node.get("intent").asText() : "GENERAL_CHAT";
+            return node.has("intent") ? node.get("intent").asText() : "CHAT";
         } catch (Exception e) {
             logger.warn("意图识别失败，降级为通用对话: {}", e.getMessage());
-            return "GENERAL_CHAT";
+            return "CHAT";
         }
     }
 
@@ -134,20 +125,10 @@ public class AgentOrchestrationService {
         try {
             String result;
             switch (intent) {
-                case "SAFETY_QA", "DEVICE_STATUS", "ALARM_QUERY", "DEVICE_PROFILE" -> {
+                case "KNOWLEDGE_QA" -> {
                     result = handleSimpleQuery(question, history, dashScopeApi, selectedSkill, memoryContext, sessionId, taskId);
                 }
-                case "LOG_ANALYSIS" -> {
-                    ReactAgent agent = logAnalysisAgent.create(dashScopeApi);
-                    var response = agent.call(question);
-                    result = response.getText();
-                }
-                case "TICKET_QUERY" -> {
-                    ReactAgent agent = ticketAgent.create(dashScopeApi);
-                    var response = agent.call(question);
-                    result = response.getText();
-                }
-                case "FAULT_DIAGNOSIS", "ALARM_DIAGNOSIS" -> {
+                case "DIAGNOSIS" -> {
                     result = handleDiagnosis(question, dashScopeApi, selectedSkill, sessionId, taskId);
                 }
                 default -> {
@@ -223,7 +204,7 @@ public class AgentOrchestrationService {
                     .build();
 
             ReactAgent agent = ReactAgent.builder()
-                    .name("power_chat_agent")
+                    .name("chat_agent")
                     .model(chatModel)
                     .systemPrompt(systemPrompt.toString())
                     .tools(tools.getToolCallbacks())
@@ -240,26 +221,19 @@ public class AgentOrchestrationService {
     private String handleDiagnosis(String question, DashScopeApi dashScopeApi,
                                     Skill skill, String sessionId, String taskId) {
         try {
-            checkpointService.saveCheckpoint(taskId, sessionId, "SUBAGENTS_START", new HashMap<>());
+            checkpointService.saveCheckpoint(taskId, sessionId, "ANALYSIS_START", new HashMap<>());
 
-            List<SubagentTask> subagentTasks = List.of(
-                    SubagentTask.builder().subagentName("regulation").input(question).build(),
-                    SubagentTask.builder().subagentName("metrics").input(question).build(),
-                    SubagentTask.builder().subagentName("log").input(question).build(),
-                    SubagentTask.builder().subagentName("ticket").input(question).build()
-            );
+            String evidence = analysisAgent.create(dashScopeApi).call(question).getText();
 
-            List<SubagentTask> subagentResults = subagentExecutor.executeParallel(subagentTasks);
+            checkpointService.saveCheckpoint(taskId, sessionId, "ANALYSIS_DONE",
+                    Map.of("evidenceLength", String.valueOf(evidence.length())));
 
-            checkpointService.saveCheckpoint(taskId, sessionId, "SUBAGENTS_DONE",
-                    Map.of("completedCount", String.valueOf(subagentResults.stream().filter(t -> "COMPLETED".equals(t.getStatus())).count())));
-
-            StringBuilder aggregatedContext = new StringBuilder();
-            aggregatedContext.append("以下是各子Agent的分析结果：\n\n");
-            for (SubagentTask task : subagentResults) {
-                aggregatedContext.append("## ").append(task.getSubagentName()).append(" 分析结果\n");
-                aggregatedContext.append(task.getResult() != null ? task.getResult() : "分析失败").append("\n\n");
+            String skillPrompt = "";
+            if (skill != null && skill.getPromptTemplate() != null) {
+                skillPrompt = "\n\n--- 业务场景指导 ---\n" + skill.getPromptTemplate();
             }
+
+            String diagnosisInput = question + "\n\n--- 收集的证据 ---\n" + evidence + skillPrompt;
 
             HookContext preDiagCtx = HookContext.builder()
                     .sessionId(sessionId)
@@ -270,30 +244,15 @@ public class AgentOrchestrationService {
                     .build();
             hookEngine.executeHooks("PRE_DIAGNOSIS", preDiagCtx);
 
-            String skillPrompt = "";
-            if (skill != null && skill.getPromptTemplate() != null) {
-                skillPrompt = "\n\n--- 业务场景指导 ---\n" + skill.getPromptTemplate();
-            }
-
-            String diagnosisInput = question + "\n\n" + aggregatedContext + skillPrompt;
-
-            ReactAgent diagnosisReactAgent = diagnosisAgent.create(dashScopeApi);
-            var response = diagnosisReactAgent.call(diagnosisInput);
-            String diagnosisResult = response.getText();
+            String diagnosisResult = diagnosisAgent.create(dashScopeApi).call(diagnosisInput).getText();
 
             checkpointService.saveCheckpoint(taskId, sessionId, "DIAGNOSIS_GENERATED",
                     Map.of("resultLength", String.valueOf(diagnosisResult.length())));
 
-            SubagentTask riskReviewTask = SubagentTask.builder()
-                    .subagentName("risk_review")
-                    .input("请审核以下诊断建议的安全性和可行性：\n" + diagnosisResult)
-                    .build();
-            List<SubagentTask> riskResults = subagentExecutor.executeParallel(List.of(riskReviewTask));
-            if (!riskResults.isEmpty() && "COMPLETED".equals(riskResults.get(0).getStatus())) {
-                diagnosisResult += "\n\n--- 风险复核 ---\n" + riskResults.get(0).getResult();
-            }
+            String riskInput = "原始问题: " + question + "\n\n诊断结果:\n" + diagnosisResult;
+            String riskResult = riskReviewAgent.create(dashScopeApi).call(riskInput).getText();
 
-            return diagnosisResult;
+            return diagnosisResult + "\n\n--- 风险评估与行动建议 ---\n" + riskResult;
         } catch (Exception e) {
             logger.error("诊断流程执行失败", e);
             return "诊断流程执行异常：" + e.getMessage();
