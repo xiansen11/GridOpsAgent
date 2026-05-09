@@ -324,11 +324,14 @@
 </div>
 
 <script>
-let sessionId = generateSessionId();
+let sessionId = localStorage.getItem('gridops_sessionId') || generateSessionId();
+localStorage.setItem('gridops_sessionId', sessionId);
 let isProcessing = false;
 
 function generateSessionId() {
-    return 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    const id = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('gridops_sessionId', id);
+    return id;
 }
 
 function addMessage(content, isUser = false) {
@@ -504,11 +507,13 @@ async function startDiagnosis() {
 }
 
 function clearSession() {
+    const oldSessionId = sessionId;
     sessionId = generateSessionId();
+
     fetch('/api/chat/clear', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({sessionId})
+        body: JSON.stringify({sessionId: oldSessionId})
     }).then(() => {
         document.getElementById('messages').innerHTML = `
             <div class="empty-state">
@@ -534,6 +539,29 @@ document.getElementById('questionInput').addEventListener('input', function() {
     this.style.height = 'auto';
     this.style.height = Math.min(this.scrollHeight, 120) + 'px';
 });
+
+async function loadHistory() {
+    const savedSessionId = localStorage.getItem('gridops_sessionId');
+    if (!savedSessionId) return;
+
+    try {
+        const response = await fetch(`/api/chat/history?sessionId=${savedSessionId}`);
+        const data = await response.json();
+        if (data.messages && data.messages.length > 0) {
+            const messagesContainer = document.getElementById('messages');
+            const emptyState = messagesContainer.querySelector('.empty-state');
+            if (emptyState) emptyState.remove();
+
+            data.messages.forEach(msg => {
+                addMessage(msg.content, msg.role === 'user');
+            });
+        }
+    } catch (error) {
+        console.error('加载历史消息失败:', error);
+    }
+}
+
+loadHistory();
 </script>
 </body>
 </html>

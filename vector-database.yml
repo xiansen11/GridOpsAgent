@@ -53,7 +53,6 @@ services:
       retries: 3
     ports:
       - "19530:19530"
-      - "9091:9091"
     depends_on:
       - "etcd"
       - "minio"
@@ -62,7 +61,7 @@ services:
     container_name: milvus-attu
     image: zilliz/attu:v2.5
     ports:
-      - "8000:3000" # 把本地的 8000 端口映射到容器的 3000 端口 (Attu 默认端口)
+      - "8001:3000" # 把本地的 8000 端口映射到容器的 3000 端口 (Attu 默认端口)
     environment:
       # MILVUS_URL 指向 Docker 网络里的 Milvus standalone 服务
       MILVUS_URL: standalone:19530

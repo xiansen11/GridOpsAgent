@@ -39,7 +39,7 @@ public class EvalService {
                 .build();
 
         try {
-            String answer = orchestrationService.handleChat(evalCase.getQuestion(), List.of());
+            String answer = orchestrationService.handleChat(evalCase.getQuestion(), List.of(), "eval-session");
             long duration = System.currentTimeMillis() - startTime;
 
             result.setActualAnswer(answer);

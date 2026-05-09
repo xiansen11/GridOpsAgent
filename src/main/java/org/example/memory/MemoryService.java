@@ -2,6 +2,7 @@ package org.example.memory;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -125,6 +126,7 @@ public class MemoryService {
         return context.toString();
     }
 
+    @Scheduled(fixedRate = 3600000)
     public void cleanupExpired() {
         long now = System.currentTimeMillis();
 

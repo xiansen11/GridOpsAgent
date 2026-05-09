@@ -2,6 +2,11 @@ package org.example.controller;
 
 import com.alibaba.cloud.ai.graph.CompiledGraph;
 import com.alibaba.cloud.ai.graph.OverAllState;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import org.example.entity.ChatMessage;
+import org.example.entity.ChatSession;
+import org.example.mapper.ChatMessageMapper;
+import org.example.mapper.ChatSessionMapper;
 import org.example.service.AgentOrchestrationService;
 import org.example.service.ChatService;
 import org.example.service.RagService;
@@ -15,10 +20,12 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/chat")
@@ -38,11 +45,42 @@ public class ChatController {
     @Autowired(required = false)
     private CompiledGraph compiledGraph;
 
+    @Autowired
+    private ChatSessionMapper chatSessionMapper;
+
+    @Autowired
+    private ChatMessageMapper chatMessageMapper;
+
     @Value("${powerops.graph.enabled:false}")
     private boolean graphEnabled;
 
     private final Map<String, List<Map<String, String>>> sessionHistoryMap = new ConcurrentHashMap<>();
     private final ExecutorService sseExecutor = Executors.newCachedThreadPool();
+
+    private void saveMessageToDb(String sessionId, String userId, String role, String content, String intent, String agentName) {
+        ChatSession session = chatSessionMapper.selectOne(
+                new LambdaQueryWrapper<ChatSession>().eq(ChatSession::getSessionId, sessionId)
+        );
+        if (session == null) {
+            session = ChatSession.builder()
+                    .sessionId(sessionId)
+                    .userId(userId)
+                    .build();
+            chatSessionMapper.insert(session);
+        } else {
+            session.setUpdatedAt(LocalDateTime.now());
+            chatSessionMapper.updateById(session);
+        }
+
+        ChatMessage message = ChatMessage.builder()
+                .sessionId(sessionId)
+                .role(role)
+                .content(content)
+                .intent(intent)
+                .agentName(agentName)
+                .build();
+        chatMessageMapper.insert(message);
+    }
 
     @PostMapping
     public Map<String, Object> chat(@RequestBody Map<String, String> request) {
@@ -59,11 +97,14 @@ public class ChatController {
             if (graphEnabled && compiledGraph != null) {
                 answer = invokeGraph(question, sessionId, userId, history);
             } else {
-                answer = orchestrationService.handleChat(question, history);
+                answer = orchestrationService.handleChat(question, history, sessionId);
             }
 
             history.add(Map.of("role", "user", "content", question));
             history.add(Map.of("role", "assistant", "content", answer));
+
+            saveMessageToDb(sessionId, userId, "user", question, null, null);
+            saveMessageToDb(sessionId, userId, "assistant", answer, null, null);
 
             if (history.size() > 40) {
                 history.subList(0, history.size() - 40).clear();
@@ -105,7 +146,7 @@ public class ChatController {
             return answer;
         } catch (Exception e) {
             logger.warn("Graph引擎执行失败，降级到旧编排: {}", e.getMessage());
-            return orchestrationService.handleChat(question, history);
+            return orchestrationService.handleChat(question, history, sessionId);
         }
     }
 
@@ -163,6 +204,9 @@ public class ChatController {
                             history.add(Map.of("role", "user", "content", question));
                             history.add(Map.of("role", "assistant", "content", fullContent));
 
+                            saveMessageToDb(sessionId, userId, "user", question, null, null);
+                            saveMessageToDb(sessionId, userId, "assistant", fullContent, null, null);
+
                             if (history.size() > 40) {
                                 history.subList(0, history.size() - 40).clear();
                             }
@@ -206,9 +250,68 @@ public class ChatController {
         String sessionId = request.get("sessionId");
         if (sessionId != null) {
             sessionHistoryMap.remove(sessionId);
+            chatMessageMapper.delete(
+                    new LambdaQueryWrapper<ChatMessage>().eq(ChatMessage::getSessionId, sessionId)
+            );
+            chatSessionMapper.delete(
+                    new LambdaQueryWrapper<ChatSession>().eq(ChatSession::getSessionId, sessionId)
+            );
         }
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("message", "会话已清空");
+        return response;
+    }
+
+    @GetMapping("/history")
+    public Map<String, Object> getHistory(@RequestParam String sessionId) {
+        List<ChatMessage> messages = chatMessageMapper.selectList(
+                new LambdaQueryWrapper<ChatMessage>()
+                        .eq(ChatMessage::getSessionId, sessionId)
+                        .orderByAsc(ChatMessage::getCreatedAt)
+        );
+
+        List<Map<String, String>> historyList = messages.stream()
+                .map(msg -> Map.of(
+                        "role", msg.getRole(),
+                        "content", msg.getContent() != null ? msg.getContent() : ""
+                ))
+                .collect(Collectors.toList());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("sessionId", sessionId);
+        response.put("messages", historyList);
+        return response;
+    }
+
+    @GetMapping("/sessions")
+    public Map<String, Object> getSessions(@RequestParam(defaultValue = "default") String userId) {
+        List<ChatSession> sessions = chatSessionMapper.selectList(
+                new LambdaQueryWrapper<ChatSession>()
+                        .eq(ChatSession::getUserId, userId)
+                        .orderByDesc(ChatSession::getUpdatedAt)
+                        .last("LIMIT 50")
+        );
+
+        List<Map<String, Object>> sessionList = sessions.stream()
+                .map(s -> {
+                    Map<String, Object> map = new LinkedHashMap<>();
+                    map.put("sessionId", s.getSessionId());
+                    map.put("createdAt", s.getCreatedAt() != null ? s.getCreatedAt().toString() : "");
+                    map.put("updatedAt", s.getUpdatedAt() != null ? s.getUpdatedAt().toString() : "");
+                    ChatMessage lastMsg = chatMessageMapper.selectOne(
+                            new LambdaQueryWrapper<ChatMessage>()
+                                    .eq(ChatMessage::getSessionId, s.getSessionId())
+                                    .eq(ChatMessage::getRole, "user")
+                                    .orderByDesc(ChatMessage::getCreatedAt)
+                                    .last("LIMIT 1")
+                    );
+                    map.put("lastMessage", lastMsg != null ? lastMsg.getContent() : "");
+                    return map;
+                })
+                .collect(Collectors.toList());
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("sessions", sessionList);
         return response;
     }
 }

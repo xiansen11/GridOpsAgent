@@ -78,8 +78,7 @@ public class AgentOrchestrationService {
         }
     }
 
-    public String handleChat(String question, List<Map<String, String>> history) {
-        String sessionId = UUID.randomUUID().toString();
+    public String handleChat(String question, List<Map<String, String>> history, String sessionId) {
         String taskId = "TASK-" + System.currentTimeMillis();
 
         HookContext preRouteCtx = HookContext.builder()
@@ -275,7 +274,7 @@ public class AgentOrchestrationService {
             }
 
             logger.info("从检查点恢复任务: taskId={}, state={}", taskId, agentState);
-            return handleChat(question, List.of());
+            return handleChat(question, List.of(), sessionId);
         } catch (Exception e) {
             logger.error("断点恢复失败: taskId={}", taskId, e);
             return "断点恢复失败: " + e.getMessage();

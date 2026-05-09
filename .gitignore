@@ -46,3 +46,6 @@ uploads/
 
 # Environment
 .env
+
+# Docker volumes
+volumes/
