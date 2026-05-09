@@ -1,0 +1,19 @@
+server:
+  port: 9901
+
+spring:
+  application:
+    name: grid-ops-power-tools-mcp-server
+  ai:
+    mcp:
+      server:
+        enabled: true
+        name: grid-ops-power-tools-mcp-server
+        version: 1.0.0
+        type: SYNC
+        instructions: "Power grid operations tools exposed over MCP Streamable HTTP."
+        capabilities:
+          tool: true
+
+power:
+  mock-enabled: true

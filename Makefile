@@ -3,6 +3,7 @@
 
 # 配置变量
 SERVER_URL = http://localhost:9900
+MCP_SERVER_URL = http://localhost:9901
 UPLOAD_API = $(SERVER_URL)/api/knowledge/documents/upload
 DOCS_DIR = aiops-docs
 HEALTH_CHECK_API = $(SERVER_URL)/milvus/health
@@ -71,9 +72,13 @@ start:
 		echo "$(GREEN)✅ 服务已经在运行中 ($(SERVER_URL))$(NC)"; \
 	else \
 		echo "$(YELLOW)📦 正在启动服务（后台运行）...$(NC)"; \
-		nohup mvn spring-boot:run > server.log 2>&1 & \
+		nohup mvn -pl power-tools-mcp-server spring-boot:run > mcp-server.log 2>&1 & \
+		echo $$! > mcp-server.pid; \
+		sleep 3; \
+		nohup mvn -pl grid-ops-agent-app spring-boot:run > server.log 2>&1 & \
 		echo $$! > server.pid; \
 		echo "$(GREEN)✅ 服务启动命令已执行$(NC)"; \
+		echo "$(YELLOW)   MCP PID: $$(cat mcp-server.pid)$(NC)"; \
 		echo "$(YELLOW)   PID: $$(cat server.pid)$(NC)"; \
 		echo "$(YELLOW)   日志文件: server.log$(NC)"; \
 	fi
@@ -104,7 +109,7 @@ check:
 		echo "$(GREEN)✅ 服务器运行正常 ($(SERVER_URL))$(NC)"; \
 	else \
 		echo "$(RED)❌ 服务器未运行或无法连接！$(NC)"; \
-		echo "$(YELLOW)请先启动项目: mvn spring-boot:run$(NC)"; \
+		echo "$(YELLOW)请先启动项目: make start 或 mvn -pl power-tools-mcp-server spring-boot:run + mvn -pl grid-ops-agent-app spring-boot:run$(NC)"; \
 		exit 1; \
 	fi
 
@@ -164,6 +169,16 @@ stop:
 		echo "$(YELLOW)⚠️  未找到 server.pid 文件$(NC)"; \
 		pkill -f "spring-boot:run" && echo "$(GREEN)✅ 已停止所有 spring-boot 进程$(NC)" || echo "$(YELLOW)⚠️  没有运行中的 spring-boot 进程$(NC)"; \
 	fi
+	@if [ -f mcp-server.pid ]; then \
+		pid=$$(cat mcp-server.pid); \
+		if ps -p $$pid > /dev/null 2>&1; then \
+			kill $$pid; \
+			echo "$(GREEN)✅ MCP 服务已停止(PID: $$pid)$(NC)"; \
+		else \
+			echo "$(YELLOW)⚠️  MCP 进程不存在(PID: $$pid)$(NC)"; \
+		fi; \
+		rm -f mcp-server.pid; \
+	fi
 
 # 重启 Spring Boot 服务
 restart:
@@ -183,7 +198,7 @@ restart:
 clean:
 	@echo "$(YELLOW)🧹 清理临时文件...$(NC)"
 	@rm -rf uploads/*.tmp
-	@rm -f server.pid server.log
+	@rm -f server.pid server.log mcp-server.pid mcp-server.log
 	@echo "$(GREEN)✅ 清理完成$(NC)"
 
 # 显示文档列表
